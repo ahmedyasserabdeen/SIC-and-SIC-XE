@@ -1,0 +1,51 @@
+#define _CRT_SECURE_NO_WARNINGS
+#include <iostream>
+#include <vector>
+#include <string>
+#include <sstream>
+using namespace std;
+
+vector<string> obj;
+string line;
+unsigned start = 0;
+
+unsigned stoh(string hx) {
+    stringstream ss;
+    unsigned ret;
+    ss << hx;
+    ss >> hex >> ret;
+    return ret;
+}
+
+int main() {
+    freopen("header.txt", "r", stdin);
+    while (getline(cin, line)) {
+        vector<string> list;
+        string s;
+        stringstream ss(line);
+        while (ss >> s) {
+            list.push_back(s);
+        }
+        if (list[0] == "H") {
+            start = stoh(list[2]);
+        }
+        if (list[0] == "T") {
+            for (int i = 3; i < list.size(); i++) {
+                obj.push_back(list[i]);
+            }
+        }
+    }
+    for (int i = 0; i < obj.size() - 3; i += 4) {
+
+        cout << hex << start << " | ";
+        cout.width(6);
+        cout << obj[i] << " ";
+        cout.width(6);
+        cout << obj[i + 1] << " ";
+        cout.width(6);
+        cout << obj[i + 2] << " ";
+        cout.width(6);
+        cout << obj[i + 3] << endl;
+        start += 12;
+    }
+}
