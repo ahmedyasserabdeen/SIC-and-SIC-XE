@@ -1,0 +1,243 @@
+#define _CRT_SECURE_NO_WARNINGS
+#include <string>
+#include <map>
+#include <vector>
+#include <sstream>
+#include <iostream>
+using namespace std;
+
+//Vectors
+vector<pair<unsigned, pair<string, string>>> location_instruction_address;
+vector<pair<unsigned, string>> location_objectCode;
+
+//Maps
+map<string, string> instruction_opcode;
+map<string, unsigned> directives_location;
+
+//Variables
+unsigned location;		//Location in hexadecimal
+unsigned locStart;
+string opInput;
+string address;
+string progName;
+bool flag = true;
+
+//List for available opcodes
+void opcodeList() {
+
+	instruction_opcode.insert(pair <string, string>("LDA", "00"));
+	instruction_opcode.insert(pair <string, string>("AND", "40"));
+	instruction_opcode.insert(pair <string, string>("DIV", "24"));
+	instruction_opcode.insert(pair <string, string>("SUB", "1C"));
+	instruction_opcode.insert(pair <string, string>("ADD", "18"));
+	instruction_opcode.insert(pair <string, string>("LDL", "08"));
+	instruction_opcode.insert(pair <string, string>("RD", "D8"));
+	instruction_opcode.insert(pair <string, string>("WD", "DC"));
+	instruction_opcode.insert(pair <string, string>("LDCH", "50"));
+	instruction_opcode.insert(pair <string, string>("STX", "10"));
+	instruction_opcode.insert(pair <string, string>("JLT", "38"));
+	instruction_opcode.insert(pair <string, string>("TIX", "2C"));
+	instruction_opcode.insert(pair <string, string>("TD", "E0"));
+	instruction_opcode.insert(pair <string, string>("STCH", "54"));
+	instruction_opcode.insert(pair <string, string>("STL", "14"));
+	instruction_opcode.insert(pair <string, string>("LDX", "04"));
+	instruction_opcode.insert(pair <string, string>("RSUB", "4C"));
+	instruction_opcode.insert(pair <string, string>("STA", "0C"));
+	instruction_opcode.insert(pair <string, string>("J", "3C"));
+	instruction_opcode.insert(pair <string, string>("JEQ", "30"));
+	instruction_opcode.insert(pair <string, string>("COMP", "26"));
+	instruction_opcode.insert(pair <string, string>("COMP", "14"));
+	instruction_opcode.insert(pair <string, string>("JSUB", "48"));
+	instruction_opcode.insert(pair <string, string>("JGT", "34"));
+	instruction_opcode.insert(pair <string, string>("MUL", "20"));
+	instruction_opcode.insert(pair <string, string>("OR", "44"));
+	instruction_opcode.insert(pair <string, string>("STSW", "E8"));
+}
+
+unsigned stoh(string hx) {
+	stringstream ss;
+	unsigned ret;
+	ss << hx;
+	ss >> hex >> ret;
+	return ret;
+}
+
+int main() {
+	opcodeList();
+	//Reading the text file
+	freopen("programInput.txt", "r", stdin);
+	freopen("header.txt", "w", stdout);
+
+
+	//Check the text file line-by-line
+	while (getline(cin, opInput)) {
+
+		stringstream fullLine(opInput);
+		string inst_or_dir;
+		fullLine >> inst_or_dir;
+
+		if (flag) {
+			progName = inst_or_dir;		//Program name
+			fullLine >> inst_or_dir;	//Ignored
+			fullLine >> inst_or_dir;
+			location = stoh(inst_or_dir);	//Location start
+			locStart = location;
+			flag = false;
+			continue;
+		}
+
+		address = "0000";
+		//INSTRUCTIONS
+		if (instruction_opcode[inst_or_dir].size() != 0) {
+			if (!fullLine.str().empty()) {
+				fullLine >> address;
+			}
+			location_instruction_address.push_back({ location, {inst_or_dir, address} });
+			location += 3;
+		}
+
+		//DIRECTIVES
+		else {
+			directives_location[inst_or_dir] = location;
+			fullLine >> inst_or_dir;
+
+			if (inst_or_dir == "BYTE") {
+				fullLine >> address;
+				stringstream hexForNum;
+				if (address[0] == 'C' || address[0] == 'c') {
+					for (int i = 2; address[i] != '\''; i++)
+						hexForNum << hex << (int)address[i];
+					location_instruction_address.push_back({ location, {inst_or_dir, hexForNum.str()} });
+					location += hexForNum.str().size() / 2;
+				}
+				else if (address[0] == 'X' || address[0] == 'x') {
+					for (int i = 2; address[i] != '\''; i++)
+						hexForNum << address[i];
+					location_instruction_address.push_back({ location, {inst_or_dir, hexForNum.str()} });
+					location += (hexForNum.str().size() + 1) / 2;
+				}
+			}
+
+			else if (inst_or_dir == "WORD") {
+				fullLine >> address;
+				stringstream hexForNum;
+				hexForNum.width(6);
+				hexForNum.fill('0');
+				hexForNum << hex << stoi(address);
+				location_instruction_address.push_back({ location, {inst_or_dir, hexForNum.str()} });
+				location += 3;
+			}
+
+			else if (inst_or_dir == "RESW") {
+				fullLine >> address;
+				int reswSize = stoi(address);
+				location_instruction_address.push_back({ location, {inst_or_dir, address} });
+				location += (3 * reswSize);
+			}
+
+			else if (inst_or_dir == "RESB") {
+				fullLine >> address;
+				int resbSize = stoi(address);
+				location_instruction_address.push_back({ location, {inst_or_dir, address} });
+				location += resbSize;
+			}
+
+			else {
+				fullLine >> address;
+				location_instruction_address.push_back({ location, {inst_or_dir, address} });
+				location += 3;
+			}
+		}
+	}
+
+	//INDEXED
+	for (auto i : location_instruction_address) {
+		unsigned tempLoc;
+
+		if (i.second.second.find(",X") != string::npos) {
+			i.second.second.pop_back();
+			i.second.second.pop_back();
+			tempLoc = directives_location[i.second.second];
+			tempLoc += 0x8000;
+		}
+
+		else {
+			tempLoc = directives_location[i.second.second];
+		}
+
+		stringstream tempStrStream;
+		tempStrStream.width(4);
+		tempStrStream.fill('0');
+		tempStrStream << hex << tempLoc;//To turn value to hexadecimal
+		string LOC;
+		tempStrStream >> LOC;
+
+		if (i.second.first == "BYTE" || i.second.first == "WORD")
+			location_objectCode.push_back({ i.first, i.second.second });
+
+		else if (i.second.first == "RESW" || i.second.first == "RESB")
+			continue;
+
+		else
+			location_objectCode.push_back({ i.first, instruction_opcode[i.second.first] + LOC });
+	}
+
+	cout << 'H' << ' ';
+	cout << progName << ' ';
+	cout.width(6);
+	cout.fill('0');
+	cout << hex << locStart << ' ';
+	cout.width(6);
+	cout.fill('0');
+	cout << hex << (location - locStart) << endl;
+
+	vector<string> objText;
+
+	bool end = false;
+	int j = 0, counter = 0;
+	unsigned loc = 0;
+	for (int i = 0; i < location_instruction_address.size(); i++) {
+		if (counter + (location_objectCode[j].second.size() / 2) <= 30) {
+			while (location_instruction_address[i].second.first == "RESW" || location_instruction_address[i].second.first == "RESB") {
+				end = true;
+				i++;
+			}
+			if (loc == 0) loc = location_objectCode[j].first;
+			counter += location_objectCode[j].second.size() / 2;
+			objText.push_back(location_objectCode[j].second);
+			j++;
+		}
+		else {
+			end = true;
+		}
+		if (end) {
+			cout << "T " << hex << loc << ' ' << counter << ' ';
+			for (string i : objText) {
+				cout << i << ' ';
+			}
+			cout << endl;
+			objText.clear();
+			counter = 0;
+			loc = 0;
+			end = false;
+		}
+	}
+	while (j < location_objectCode.size()) {
+		if (loc == 0) loc = location_objectCode[j].first;
+		counter += location_objectCode[j].second.size() / 2;
+		objText.push_back(location_objectCode[j].second);
+		j++;
+	}
+
+	if (!objText.empty()) {
+		cout << "T " << hex << loc << ' ' << counter << ' ';
+		for (string i : objText) {
+			cout << i << ' ';
+		}
+		cout << endl;
+	}
+	cout << "E ";
+	cout.width(6);
+	cout.fill('0');
+	cout << locStart << endl;
+}
